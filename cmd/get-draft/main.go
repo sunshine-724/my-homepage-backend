@@ -41,14 +41,11 @@ func init() {
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	fmt.Println("Received request for get posts handler.")
 
-	var reqBody RequestBody
+	id,ok := request.PathParameters["id"]
 
-	err := json.Unmarshal([]byte(request.Body), &reqBody)
-	if err != nil {
+	if(!ok) {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "Invalid request Body"}, nil
 	}
-
-	id := reqBody.ID
 
 	// キーを定義
 	key := map[string]types.AttributeValue{
