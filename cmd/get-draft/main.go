@@ -19,13 +19,15 @@ type RequestBody struct {
 }
 
 type PostItem struct {
-	ID          string   `dynamodbav:"id"`
-	Title       string   `dynamodbav:"title"`
-	Date        string   `dynamodbav:"date"`
-	Content     string   `dynamodbav:"content"`
-	Tags        []string `dynamodbav:"tags"`
-	IsPublished bool     `dynamodbav:"isPublished"`
+    ID          string   `json:"id" dynamodbav:"id"`
+    Title       string   `json:"title" dynamodbav:"title"`
+    Date        string   `json:"date" dynamodbav:"date"`
+    Content     string   `json:"content" dynamodbav:"content"`
+    Tags        []string `json:"tags" dynamodbav:"tags"`
+    IsPublished bool     `json:"isPublished" dynamodbav:"isPublished"`
+    TTL         int64    `json:"ttl" dynamodbav:"ttl"`
 }
+
 
 var dbClient *dynamodb.Client
 var getTableName = os.Getenv("GET_TABLE_NAME")
@@ -41,9 +43,9 @@ func init() {
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	fmt.Println("Received request for get posts handler.")
 
-	id,ok := request.PathParameters["id"]
+	id := request.PathParameters["id"]
 
-	if(!ok) {
+	if(id == "") {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "Invalid request Body"}, nil
 	}
 
@@ -83,6 +85,8 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	if err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: 500, Body: "レスポンスボディの作成に失敗しました"}, nil
 	}
+
+	fmt.Println("Response Body: " + string(responseBody))
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
