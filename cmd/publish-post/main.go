@@ -48,7 +48,9 @@ func init() {
 }
 
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+
 	fmt.Println("Received request for post handler.")
+	fmt.Printf("Request Body is %v\n",request.Body)
 
 	var reqBody RequestBody
 	err := json.Unmarshal([]byte(request.Body), &reqBody)
