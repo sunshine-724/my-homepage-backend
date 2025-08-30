@@ -17,12 +17,13 @@ import (
 // PostItem: DynamoDBのブログ投稿テーブルから取得するデータ構造
 // TTLフィールドはblog_postsテーブルには通常ないため、定義しないか、あっても無視される
 type PostItem struct {
-	ID          string   `dynamodbav:"id"`
-	Title       string   `dynamodbav:"title"`
-	Date 		string   `dynamodbav:"date"`
-	Content     string   `dynamodbav:"content"`
-	Tags        []string `dynamodbav:"tags"`
-	IsPublished bool     `dynamodbav:"isPublished"`
+    ID          string   `json:"id" dynamodbav:"id"`
+    Title       string   `json:"title" dynamodbav:"title"`
+    Date        string   `json:"date" dynamodbav:"date"`
+    Content     string   `json:"content" dynamodbav:"content"`
+    Tags        []string `json:"tags" dynamodbav:"tags"`
+    IsPublished bool     `json:"isPublished" dynamodbav:"isPublished"`
+    TTL         int64    `json:"ttl" dynamodbav:"ttl"`
 }
 
 var dbClient *dynamodb.Client
