@@ -89,40 +89,36 @@
 [
   {
     "id": "id1",
-    "Title": "title",
-    "Day": "",
-    "Content": "content",
-    "Tags": [
+    "title": "title",
+    "date": "",
+    "content": "content",
+    "tags": [
       "Android Studio"
     ],
-    "IsPublished": false,
-    "CreatedAt": "",
-    "message": "Blog post published successfully!"
+    "isPublished": false,
+    "ttl": "",
   },
   {
     "id": "id2",
-    "Title": "title",
-    "Day": "",
-    "Content": "content",
-    "Tags": [
+    "title": "title",
+    "date": "",
+    "content": "content",
+    "tags": [
       "Android Studio"
     ],
-    "IsPublished": false,
-    "CreatedAt": "",
-    "message": "Blog post published successfully!"
-  },
-  {
+    "isPublished": false,
+    "ttl": "",
+  },{
     "id": "id3",
-    "Title": "title",
-    "Day": "",
-    "Content": "content",
-    "Tags": [
+    "title": "title",
+    "date": "",
+    "content": "content",
+    "tags": [
       "Android Studio"
     ],
-    "IsPublished": false,
-    "CreatedAt": "",
-    "message": "Blog post published successfully!"
-  }
+    "isPublished": false,
+    "ttl": "",
+  },
 ]
 ```
 
