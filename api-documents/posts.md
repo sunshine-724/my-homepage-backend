@@ -70,3 +70,76 @@
   { "error": "Failed to put post to DynamoDB: {err}" },
 ]
 ```
+
+### GET /posts
+- 概要: ブログデータベースから全てのアイテムを取得する
+- 認証: API Key
+
+#### Request
+```json
+[
+  {
+    
+  }
+]
+```
+
+#### Response 200
+```json
+[
+  {
+    "id": "id1",
+    "Title": "title",
+    "Day": "",
+    "Content": "content",
+    "Tags": [
+      "Android Studio"
+    ],
+    "IsPublished": false,
+    "CreatedAt": "",
+    "message": "Blog post published successfully!"
+  },
+  {
+    "id": "id2",
+    "Title": "title",
+    "Day": "",
+    "Content": "content",
+    "Tags": [
+      "Android Studio"
+    ],
+    "IsPublished": false,
+    "CreatedAt": "",
+    "message": "Blog post published successfully!"
+  },
+  {
+    "id": "id3",
+    "Title": "title",
+    "Day": "",
+    "Content": "content",
+    "Tags": [
+      "Android Studio"
+    ],
+    "IsPublished": false,
+    "CreatedAt": "",
+    "message": "Blog post published successfully!"
+  }
+]
+```
+
+#### Error
+- 500 Internal Server Error
+```json
+[
+  { "error": "Failed to scan posts: {err}}" },
+]
+```
+```json
+[
+  { "error": "Failed to unmarshal posts: {err"}" },
+]
+```
+```json
+[
+  { "error": "Failed to marshal response" },
+]
+```
