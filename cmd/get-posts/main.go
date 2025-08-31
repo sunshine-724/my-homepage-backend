@@ -70,6 +70,8 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 500, Body: "Failed to marshal response"}, nil
 	}
 
+	fmt.Printf("responseBody: %v\n", responseBody)
+
 	// 成功レスポンスを返す
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
