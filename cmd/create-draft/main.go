@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,6 +22,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 )
+
+// TODO: ロギングをfmtからzerologのような構造化ロギングライブラリに移行する (LOG_LEVEL環境変数で制御)
+
 
 // RequestBody: フロントエンドから送られてくるリクエストボディ
 type RequestBody struct {
@@ -47,7 +52,7 @@ var tableName = os.Getenv("TABLE_NAME")
 
 var s3Client *s3.Client
 var bucketName = os.Getenv("BUCKET_NAME")
-var region = os.Getenv("AWS_REGION")
+var region = os.Getenv("AWS_REGION") // AWS側で環境変数を取得してくれる
 
 func init() {
 	// v2ではconfig.LoadDefaultConfigを使って設定をロード
@@ -68,18 +73,18 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 
 	mediaType, params, err := mime.ParseMediaType(contentType) // params: セミコロン以降のパラメータ(ex.map[boundary]----abc)
-	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
+	if err != nil || !(strings.HasPrefix(mediaType, "multipart/") || strings.HasPrefix(mediaType, "application/")) {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "Unsupported media type"}, nil
 	}
 
 	var reqBody RequestBody
 
-	var item DraftItem // dynamoDBに保存するデータ
+	var item DraftItem               // dynamoDBに保存するデータ
 	var attachmentFilePaths []string // S3に保存したファイルのパス
 
 	var draftID string // dynamoDBの主キー
 	var ttl int64
-	
+
 	draftID = uuid.New().String()
 	fmt.Println("Generated draftID:", draftID)
 	ttl = time.Now().Add(7 * 24 * time.Hour).Unix()
@@ -91,28 +96,70 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		}
 	} else if strings.HasPrefix(mediaType, "multipart/form-data") {
 		/* 送られてきたのが複数ファイルを含むフォームデータだった場合 */
-		boundary := params["boundary"]
 
-		mr := multipart.NewReader(strings.NewReader(request.Body), boundary) // multipart/form-dataのリクエストボディをパース
+		var bodyReader io.Reader
+		if request.IsBase64Encoded {
+			fmt.Println("Decoding Base64 body...")
+			decodedBody, err := base64.StdEncoding.DecodeString(request.Body)
+			if err != nil {
+				fmt.Println("Base64 Decode Error:", err)
+				return events.APIGatewayProxyResponse{StatusCode: 500, Body: "Failed to decode base64 body"}, nil
+			}
+			// デコード後のボディの先頭200文字を表示
+			if len(decodedBody) > 200 {
+				fmt.Printf("Decoded Body (first 200 chars): %s\n", string(decodedBody[:200]))
+			} else {
+				fmt.Printf("Decoded Body: %s\n", string(decodedBody))
+			}
+			bodyReader = bytes.NewReader(decodedBody)
+		} else {
+			fmt.Println("Body is not Base64 encoded. Using raw string.")
+			bodyReader = strings.NewReader(request.Body)
+		}
+
+		boundary := params["boundary"]
+		fmt.Printf("Extracted Boundary: %s\n", boundary)
+
+		if request.IsBase64Encoded {
+			// Base64エンコードされている場合、デコードする
+			decodedBody, err := base64.StdEncoding.DecodeString(request.Body)
+			if err != nil {
+				return events.APIGatewayProxyResponse{StatusCode: 500, Body: "Failed to decode base64 body"}, nil
+			}
+			bodyReader = bytes.NewReader(decodedBody)
+		} else {
+			// エンコードされていない場合（テスト時など）
+			bodyReader = strings.NewReader(request.Body)
+		}
+
+		mr := multipart.NewReader(bodyReader, boundary) // 修正: デコード後のReaderを使用
+
+		// ▼▼▼ デバッグログ ▼▼▼
+		fmt.Println("--- Starting multipart form processing loop ---")
+		loopCounter := 0 // ループ回数を数えるためのカウンター
+
 		for {
+			fmt.Printf("\n--- Loop iteration %d ---\n", loopCounter)
+
 			part, err := mr.NextPart()
 
 			// エラー処理
 			if err == io.EOF {
+				fmt.Println("Reached EOF, breaking loop.")
 				break
 			}
 			if err != nil {
 				return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Failed to read part: %v", err)}, nil
 			}
 
-			formName := part.FormName() // Content-Dispositionヘッダーからフォーム名を取得
-
 			if part.FileName() != "" {
+				fmt.Printf("Detected file part. FileName: %s\n", part.FileName())
+
 				// ファイルがアップロードされている場合
 				/* S3処理 */
-				s3ObjectKey := fmt.Sprintf("%s/%s", draftID, part.FileName()) // オブジェクトキーにIDを含める
+				s3ObjectKey := fmt.Sprintf("%s/%s", draftID, part.FileName())
 
-				fileBytes, err := io.ReadAll(part) // アップロードされたファイルの内容を読み取る
+				fileBytes, err := io.ReadAll(part)
 				if err != nil {
 					return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Failed to read file: %v", err)}, nil
 				}
@@ -121,7 +168,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 				_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
 					Bucket: aws.String(bucketName),
 					Key:    aws.String(s3ObjectKey),
-					Body:   strings.NewReader(string(fileBytes)),
+					Body:   bytes.NewReader(fileBytes),
 				})
 
 				if err != nil {
@@ -129,17 +176,36 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 				}
 
 				attachmentFilePaths = append(attachmentFilePaths, s3ObjectKey) // オブジェクトキーを保存
-			} else if formName == "metadata" {
-				// テキストデータだった場合
+			} else {
+				// フォームフィールドの値を読み取る
 				bodyBytes, err := io.ReadAll(part)
 				if err != nil {
-					return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Failed to read form data: %v", err)}, nil
+					return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Failed to read form field: %v", err)}, nil
 				}
-				if err := json.Unmarshal(bodyBytes, &reqBody); err != nil {
-					return events.APIGatewayProxyResponse{StatusCode: 400, Body: fmt.Sprintf("Invalid JSON data: %v", err)}, nil
+				fieldValue := string(bodyBytes)
+
+				fmt.Printf("Detected text field. FormName: '%s', Value: '%s'\n", part.FormName(), fieldValue)
+
+				// フィールド名に応じて、reqBody構造体に値をセット
+				switch part.FormName() {
+				case "title":
+					reqBody.Title = fieldValue
+				case "content":
+					reqBody.Content = fieldValue
+				case "date":
+					reqBody.Date = fieldValue
+				case "tags":
+					if err := json.Unmarshal(bodyBytes, &reqBody.Tags); err != nil {
+						return events.APIGatewayProxyResponse{StatusCode: 400, Body: fmt.Sprintf("Invalid JSON in tags: %v", err)}, nil
+					}
+				case "isPublished":
+					reqBody.IsPublished = (fieldValue == "true")
 				}
 			}
+			loopCounter++
 		}
+
+		fmt.Println("--- Finished multipart form processing loop ---")
 	}
 
 	/* DB処理 */
