@@ -1,0 +1,407 @@
+openapi: 3.0.3
+info:
+  title: ブログ管理API
+  description: 下書きおよび公開ブログ記事を管理するためのバックエンドAPI
+  version: 1.0.0
+servers:
+  - url: "{AWS_API_GATEWAY_URL}"
+    description: Production API Gateway
+    variables:
+      AWS_API_GATEWAY_URL:
+        default: https://api.example.com
+        description: AWS API Gateway URL (フロントエンドプロジェクトの.env.localを参照)
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API Key認証 (AWS_API_GATEWAY_KEY_PROD - フロントエンドプロジェクトの.env.localを参照)
+
+  schemas:
+    Draft:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: 下書きの一意なID
+          example: 21828f55-1bb6-4a2f-abcc-79e3453f0d8f
+        title:
+          type: string
+          description: ブログ記事のタイトル
+          example: Example Post
+        date:
+          type: string
+          format: date
+          description: 記事の日付
+          example: "2025-08-26"
+        content:
+          type: string
+          description: 記事の本文
+          example: This is the content of my first blog post.
+        tags:
+          type: array
+          items:
+            type: string
+          description: 記事に関連するタグ
+          example:
+            - Go
+            - AWS
+            - Lambda
+        isPublished:
+          type: boolean
+          description: 公開状態
+          example: false
+        ttl:
+          type: integer
+          description: Time to live (削除時のみ)
+          example: 10000000
+
+    DraftCreateRequest:
+      type: object
+      required:
+        - title
+        - date
+        - content
+        - tags
+        - isPublished
+      properties:
+        title:
+          type: string
+          description: ブログ記事のタイトル
+          example: Example Post
+        date:
+          type: string
+          format: date
+          description: 記事の日付
+          example: "2025-08-26"
+        content:
+          type: string
+          description: 記事の本文
+          example: This is the content of my first blog post.
+        tags:
+          type: array
+          items:
+            type: string
+          description: 記事に関連するタグ
+          example:
+            - Go
+            - AWS
+            - Lambda
+        isPublished:
+          type: boolean
+          description: 公開状態
+          example: false
+
+    DraftCreateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: 作成された下書きのID
+          example: 21828f55-1bb6-4a2f-abcc-79e3453f0d8f
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 記事の一意なID
+          example: id1
+        title:
+          type: string
+          description: ブログ記事のタイトル
+          example: title
+        date:
+          type: string
+          format: date
+          description: 記事の日付
+          example: "2025-08-26"
+        content:
+          type: string
+          description: 記事の本文
+          example: content
+        tags:
+          type: array
+          items:
+            type: string
+          description: 記事に関連するタグ
+          example:
+            - Android Studio
+        isPublished:
+          type: boolean
+          description: 公開状態
+          example: false
+        ttl:
+          type: integer
+          description: Time to live
+          example: 3600
+
+    PostPublishRequest:
+      type: object
+      required:
+        - id
+        - isPublished
+      properties:
+        id:
+          type: string
+          description: 公開する下書きのID
+          example: id
+        isPublished:
+          type: boolean
+          description: 公開状態
+          example: true
+
+    PostPublishResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 公開された記事のID
+          example: id
+        message:
+          type: string
+          description: 成功メッセージ
+          example: Blog post published successfully!
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: エラーメッセージ
+          example: Invalid request body
+
+paths:
+  /drafts:
+    post:
+      summary: 下書きブログデータベースにアイテムを挿入する
+      description: 新しい下書きブログ記事を作成します
+      tags:
+        - Drafts
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftCreateRequest"
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DraftCreateResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                - error: Invalid request body
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                marshalError:
+                  value:
+                    - error: "Failed to marshal item: {err}"
+                dynamoDBError:
+                  value:
+                    - error: "Failed to put item to DynamoDB: {err}"
+
+  /drafts/{id}:
+    get:
+      summary: 下書きブログデータベースから特定のアイテムを取得する
+      description: 指定されたIDを持つ下書きブログ記事を取得します
+      tags:
+        - Drafts
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 取得する下書きのID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Draft"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                - error: Missing draft ID
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                getError:
+                  value:
+                    - error: アイテムの取得に失敗しました
+                parseError:
+                  value:
+                    - error: アイテムのパースに失敗しました
+                responseError:
+                  value:
+                    - error: レスポンスボディの作成に失敗しました
+
+    delete:
+      summary: 下書きブログデータベースから特定のアイテムを削除する
+      description: 指定されたIDを持つ下書きブログ記事を削除します
+      tags:
+        - Drafts
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 削除する下書きのID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Draft with ID {id} deleted successfully
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                - error: 指定された主キーを持つアイテムは見つかりませんでした
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                - error: "Failed to delete draft: {err}"
+
+  /posts:
+    post:
+      summary: 下書き用データベースからブログデータベースにアイテムを挿入する
+      description: 下書きを本番用ブログデータベースに公開します
+      tags:
+        - Posts
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostPublishRequest"
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostPublishResponse"
+
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                - error: Invalid request body
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                - error: Draft with ID {id} not found
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                unmarshalError:
+                  value:
+                    - error: "Failed to unmarshal draft: {err}"
+                marshalError:
+                  value:
+                    - error: "Failed to marshal post: {err}"
+                dynamoDBError:
+                  value:
+                    - error: "Failed to put post to DynamoDB: {err}"
+
+    get:
+      summary: ブログデータベースから全てのアイテムを取得する
+      description: 公開されているすべてのブログ記事を取得します
+      tags:
+        - Posts
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+              examples:
+                scanError:
+                  value:
+                    - error: "Failed to scan posts: {err}"
+                unmarshalError:
+                  value:
+                    - error: "Failed to unmarshal posts: {err}"
+                marshalError:
+                  value:
+                    - error: Failed to marshal response
+
+tags:
+  - name: Drafts
+    description: 下書きブログデータベースの操作
+  - name: Posts
+    description: 本番用ブログデータベースの操作及び、下書きブログデータベースから本番用ブログデータベースへの公開操作
