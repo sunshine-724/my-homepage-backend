@@ -58,7 +58,7 @@ jobs:
             git checkout -b $BRANCH_NAME
             
             # 変更をコミットしてPush
-            git add src/types/schema.d.ts
+            git add src/types/payload/schema.d.ts
             git commit -m "chore: API仕様変更に伴う型定義の自動同期"
             git push origin $BRANCH_NAME
 
