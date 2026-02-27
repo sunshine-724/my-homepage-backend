@@ -29,7 +29,7 @@ jobs:
       - name: Checkout Frontend Repository
         uses: actions/checkout@v4
         with:
-          repository: 'YOUR_GITHUB_NAME/YOUR_FRONTEND_REPO_NAME' # ★ここをフロントエンドのリポジトリ名に変更
+          repository: 'sunshine-724/my-homepage' # ★ここをフロントエンドのリポジトリ名に変更
           token: ${{ secrets.FRONTEND_SYNC_PAT }} # ★後述するシークレットトークン
           path: 'frontend-repo'
 
