@@ -60,7 +60,7 @@ components:
         ttl:
           type: integer
           description: Time to live (削除時のみ)
-          example: 10000000
+          example: 100000
 
     DraftCreateRequest:
       type: object
