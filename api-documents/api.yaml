@@ -61,8 +61,6 @@ components:
           type: integer
           description: Time to live (削除時のみ)
           example: 10000000
-        author:
-          type: string
 
     DraftCreateRequest:
       type: object
