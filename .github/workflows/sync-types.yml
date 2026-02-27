@@ -36,9 +36,9 @@ jobs:
       # 5. 生成したschema.d.tsをフロントエンド側にコピー
       - name: Copy generated types to Frontend
         run: |
-          # フロントエンド側の配置先ディレクトリを作成（Next.jsの構成に合わせて適宜変更してください）
-          mkdir -p ./frontend-repo/src/types
-          cp ./api-documents/schema.d.ts ./frontend-repo/src/types/schema.d.ts
+          # フロントエンド側の配置先ディレクトリを作成
+          mkdir -p ./src/types/payload
+          cp ./api-documents/schema.d.ts ./src/types/payload/schema.d.ts
 
       # 6. フロントエンドリポジトリに変更があればPRを作成
       - name: Create Pull Request in Frontend Repo
