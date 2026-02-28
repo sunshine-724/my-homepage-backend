@@ -1,0 +1,54 @@
+name: Sync Go Models
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'api-documents/api.yaml'
+  workflow_dispatch: # 手動実行用
+
+permissions:
+  contents: write       # コードをPushするために必要
+  pull-requests: write  # PRを作成するために必要
+
+jobs:
+  generate-go-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26' # 実際のプロジェクトのGoバージョンに合わせてください
+
+      - name: Generate Go Models
+        run: |
+          mkdir -p internal/models
+          go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest -generate types -package models -o internal/models/models.gen.go api-documents/api.yaml
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub標準の自動生成トークンを使用
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            BRANCH_NAME="update-go-models-$(date +%s)"
+            git checkout -b $BRANCH_NAME
+            
+            git add internal/models/models.gen.go
+            git commit -m "chore: API仕様変更に伴うGo型定義の自動同期"
+            git push origin $BRANCH_NAME
+
+            gh pr create \
+              --title "🚀 APIスキーマの更新に伴うGo型定義の自動同期" \
+              --body "バックエンドの \`api.yaml\` が更新されたため、最新のGo型定義(\`models.gen.go\`)を生成しました。" \
+              --base main \
+              --head $BRANCH_NAME
+          else
+            echo "型定義に変更がないため、PRの作成をスキップします。"
+          fi
