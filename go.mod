@@ -3,6 +3,7 @@ module github.com/sunshine-724/my-homepage-backend
 go 1.24.2
 
 require (
+	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/aws/aws-lambda-go v1.49.0 // indirect
 	github.com/aws/aws-sdk-go v1.55.8 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.38.3 // indirect
@@ -29,4 +30,5 @@ require (
 	github.com/aws/smithy-go v1.23.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/oapi-codegen/runtime v1.2.0 // indirect
 )
