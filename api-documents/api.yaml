@@ -142,10 +142,6 @@ components:
           type: integer
           description: Time to live
           example: 3600
-        author:
-          type: string
-          description: 著者名
-          example: sunshine724
     PostPublishRequest:
       type: object
       required:
