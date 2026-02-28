@@ -67,6 +67,9 @@ type Error struct {
 
 // Post defines model for Post.
 type Post struct {
+	// Author 著者名
+	Author *string `json:"author,omitempty"`
+
 	// Content 記事の本文
 	Content *string `json:"content,omitempty"`
 
