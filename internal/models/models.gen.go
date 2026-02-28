@@ -11,30 +11,6 @@ const (
 	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
 )
 
-// Draft defines model for Draft.
-type Draft struct {
-	// Content 記事の本文
-	Content *string `json:"content,omitempty"`
-
-	// Date 記事の日付
-	Date *openapi_types.Date `json:"date,omitempty"`
-
-	// Id 下書きの一意なID
-	Id *openapi_types.UUID `json:"id,omitempty"`
-
-	// IsPublished 公開状態
-	IsPublished *bool `json:"isPublished,omitempty"`
-
-	// Tags 記事に関連するタグ
-	Tags *[]string `json:"tags,omitempty"`
-
-	// Title ブログ記事のタイトル
-	Title *string `json:"title,omitempty"`
-
-	// Ttl Time to live (削除時のみ)
-	Ttl *int `json:"ttl,omitempty"`
-}
-
 // DraftCreateRequest defines model for DraftCreateRequest.
 type DraftCreateRequest struct {
 	// Content 記事の本文
@@ -44,7 +20,7 @@ type DraftCreateRequest struct {
 	Date openapi_types.Date `json:"date"`
 
 	// IsPublished 公開状態
-	IsPublished bool `json:"isPublished"`
+	IsPublished *bool `json:"isPublished,omitempty"`
 
 	// Tags 記事に関連するタグ
 	Tags []string `json:"tags"`
@@ -59,11 +35,9 @@ type DraftCreateResponse struct {
 	Id *openapi_types.UUID `json:"id,omitempty"`
 }
 
-// Error defines model for Error.
-type Error struct {
-	// Error エラーメッセージ
-	Error *string `json:"error,omitempty"`
-}
+// PlainError 現状のLambda実装はエラー時にJSONではなくプレーンテキストを返します。
+// API Gateway/CloudWatchの運用上はこの形式を正とします。
+type PlainError = string
 
 // Post defines model for Post.
 type Post struct {
@@ -107,8 +81,27 @@ type PostPublishResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// PostDraftsMultipartBody defines parameters for PostDrafts.
+type PostDraftsMultipartBody struct {
+	Content string             `json:"content"`
+	Date    openapi_types.Date `json:"date"`
+
+	// File 添付ファイル（フィールド名は任意だが、代表例として定義）
+	File *openapi_types.File `json:"file,omitempty"`
+
+	// IsPublished "true" / "false"（現状は保存時にfalse固定）
+	IsPublished *string `json:"isPublished,omitempty"`
+
+	// Tags JSON配列文字列（例: ["Go","AWS"]）
+	Tags  string `json:"tags"`
+	Title string `json:"title"`
+}
+
 // PostDraftsJSONRequestBody defines body for PostDrafts for application/json ContentType.
 type PostDraftsJSONRequestBody = DraftCreateRequest
+
+// PostDraftsMultipartRequestBody defines body for PostDrafts for multipart/form-data ContentType.
+type PostDraftsMultipartRequestBody PostDraftsMultipartBody
 
 // PostPostsJSONRequestBody defines body for PostPosts for application/json ContentType.
 type PostPostsJSONRequestBody = PostPublishRequest
