@@ -6,6 +6,7 @@ on:
       - main  # バックエンドのmainブランチにPushされた時に動く
     paths:
       - 'api-documents/api.yaml'  # このファイルが変更された時だけ実行
+  workflow_dispatch:  # 手動でワークフローをトリガーするためのオプション
 
 jobs:
   sync-types:
