@@ -29,9 +29,10 @@ jobs:
       - name: Checkout Frontend Repository
         uses: actions/checkout@v4
         with:
-          repository: 'sunshine-724/my-homepage' # ★ここをフロントエンドのリポジトリ名に変更
-          token: ${{ secrets.FRONTEND_SYNC_PAT }} # ★後述するシークレットトークン
+          repository: 'sunshine-724/my-homepage'
+          token: ${{ secrets.FRONTEND_SYNC_PAT }}
           path: 'frontend-repo'
+          ref: 'dev'
 
       # 5. 生成したschema.d.tsをフロントエンド側にコピー
       - name: Copy generated types to Frontend
@@ -66,7 +67,7 @@ jobs:
             gh pr create \
               --title "🚀 APIスキーマの更新に伴う型定義の自動同期" \
               --body "バックエンドの \`api.yaml\` が更新されたため、最新の型定義ファイルを生成しました。" \
-              --base main \
+              --base dev \
               --head $BRANCH_NAME
           else
             echo "型定義に変更がないため、PRの作成をスキップします。"
