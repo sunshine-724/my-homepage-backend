@@ -23,6 +23,12 @@ components:
       description: API Key認証 (AWS_API_GATEWAY_KEY_PROD - フロントエンドプロジェクトの.env.localを参照)
 
   schemas:
+    PlainError:
+      type: string
+      description: |-
+        現状のLambda実装はエラー時にJSONではなくプレーンテキストを返します。
+        API Gateway/CloudWatchの運用上はこの形式を正とします。
+
     Draft:
       type: object
       properties:
@@ -62,6 +68,14 @@ components:
           description: Time to live (削除時のみ)
           example: 10000000
 
+        attachmentFilePath:
+          type: array
+          items:
+            type: string
+          description: S3に保存した添付ファイルのオブジェクトキー一覧（下書き作成時のみ）
+          example:
+            - 21828f55-1bb6-4a2f-abcc-79e3453f0d8f/example.png
+
     DraftCreateRequest:
       type: object
       required:
@@ -69,7 +83,6 @@ components:
         - date
         - content
         - tags
-        - isPublished
       properties:
         title:
           type: string
@@ -171,6 +184,10 @@ components:
 
     Error:
       type: object
+      deprecated: true
+      description: |-
+        旧仕様。現状のLambda実装はエラー時にJSONではなくプレーンテキストを返すため、
+        新規のレスポンス定義では PlainError (string) を使用します。
       properties:
         error:
           type: string
@@ -192,6 +209,35 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/DraftCreateRequest"
+          multipart/form-data:
+            schema:
+              type: object
+              description: |-
+                画像などの添付ファイルを含むフォーム送信。Lambda実装は filename を持つ任意のpartをファイルとしてS3へ保存します。
+                tags は JSON配列文字列（例: ["Go","AWS"]）として送信します。
+              required:
+                - title
+                - date
+                - content
+                - tags
+              properties:
+                title:
+                  type: string
+                date:
+                  type: string
+                  format: date
+                content:
+                  type: string
+                tags:
+                  type: string
+                  description: 'JSON配列文字列（例: ["Go","AWS"]）'
+                isPublished:
+                  type: string
+                  description: '"true" / "false"（現状は保存時にfalse固定）'
+                file:
+                  type: string
+                  format: binary
+                  description: 添付ファイル（フィールド名は任意だが、代表例として定義）
       responses:
         "200":
           description: 成功
@@ -202,29 +248,34 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                - error: Invalid request body
+                $ref: "#/components/schemas/PlainError"
+              examples:
+                invalidBody:
+                  value: Invalid request body
+                unsupportedMediaType:
+                  value: Unsupported media type
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/PlainError"
               examples:
                 marshalError:
-                  value:
-                    - error: "Failed to marshal item: {err}"
+                  value: "Failed to marshal item: {err}"
                 dynamoDBError:
-                  value:
-                    - error: "Failed to put item to DynamoDB: {err}"
+                  value: "Failed to put item to DynamoDB: {err}"
+                s3Error:
+                  value: "Failed to upload file to S3: {err}"
 
   /drafts/{id}:
     get:
-      summary: 下書きブログデータベースから特定のアイテムを取得する
-      description: 指定されたIDを持つ下書きブログ記事を取得します
+      summary: （現状）IDでアイテムを取得する
+      description: |-
+        現状のLambda実装は GET_TABLE_NAME 環境変数で指定されたテーブルから id をキーに取得し、
+        Post形式のJSONを返します（パスは /drafts/{id} だがレスポンスは Post）。
       tags:
         - Drafts
       security:
@@ -242,31 +293,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Draft"
+                $ref: "#/components/schemas/Post"
         "400":
           description: Bad Request
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                - error: Missing draft ID
+                $ref: "#/components/schemas/PlainError"
+              examples:
+                missingId:
+                  value: Invalid request Body
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/PlainError"
               examples:
                 getError:
-                  value:
-                    - error: アイテムの取得に失敗しました
+                  value: アイテムの取得に失敗しました
                 parseError:
-                  value:
-                    - error: アイテムのパースに失敗しました
+                  value: アイテムのパースに失敗しました
                 responseError:
-                  value:
-                    - error: レスポンスボディの作成に失敗しました
+                  value: レスポンスボディの作成に失敗しました
 
     delete:
       summary: 下書きブログデータベースから特定のアイテムを削除する
@@ -293,22 +342,24 @@ paths:
                   message:
                     type: string
                     example: Draft with ID {id} deleted successfully
-        "404":
-          description: Not Found
+        "400":
+          description: Bad Request
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                - error: 指定された主キーを持つアイテムは見つかりませんでした
+                $ref: "#/components/schemas/PlainError"
+              examples:
+                missingId:
+                  value: Missing draft ID
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                - error: "Failed to delete draft: {err}"
+                $ref: "#/components/schemas/PlainError"
+              examples:
+                deleteError:
+                  value: "Failed to delete draft: {err}"
 
   /posts:
     post:
@@ -335,39 +386,41 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                - error: Invalid request body
+                $ref: "#/components/schemas/PlainError"
+              examples:
+                invalidBody:
+                  value: Invalid request body
         "404":
           description: Not Found
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                - error: Draft with ID {id} not found
+                $ref: "#/components/schemas/PlainError"
+              examples:
+                notFound:
+                  value: Draft with ID {id} not found
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/PlainError"
               examples:
+                getDraftError:
+                  value: "Failed to get draft: {err}"
                 unmarshalError:
-                  value:
-                    - error: "Failed to unmarshal draft: {err}"
+                  value: "Failed to unmarshal draft: {err}"
                 marshalError:
-                  value:
-                    - error: "Failed to marshal post: {err}"
+                  value: "Failed to marshal post: {err}"
                 dynamoDBError:
-                  value:
-                    - error: "Failed to put post to DynamoDB: {err}"
+                  value: "Failed to put post to DynamoDB: {err}"
 
     get:
       summary: ブログデータベースから全てのアイテムを取得する
-      description: 公開されているすべてのブログ記事を取得します
+      description: |-
+        DynamoDBテーブルをScanして全件返します（現状の実装は isPublished=true の絞り込みは行いません）。
       tags:
         - Posts
       security:
@@ -384,20 +437,70 @@ paths:
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/Error"
-
+                $ref: "#/components/schemas/PlainError"
               examples:
                 scanError:
-                  value:
-                    - error: "Failed to scan posts: {err}"
+                  value: "Failed to scan posts: {err}"
                 unmarshalError:
-                  value:
-                    - error: "Failed to unmarshal posts: {err}"
+                  value: "Failed to unmarshal posts: {err}"
                 marshalError:
-                  value:
-                    - error: Failed to marshal response
+                  value: Failed to marshal response
+
+  /posts/{id}:
+    get:
+      summary: ブログデータベースから特定のアイテムを取得する
+      description: 指定されたIDを持つブログ記事を取得します
+      tags:
+        - Posts
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 取得する記事のID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: "#/components/schemas/PlainError"
+              examples:
+                missingId:
+                  value: Invalid request Body
+        "404":
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: "#/components/schemas/PlainError"
+              examples:
+                notFound:
+                  value: 指定された主キーを持つアイテムは見つかりませんでした
+        "500":
+          description: Internal Server Error
+          content:
+            text/plain:
+              schema:
+                $ref: "#/components/schemas/PlainError"
+              examples:
+                getError:
+                  value: アイテムの取得に失敗しました
+                parseError:
+                  value: アイテムのパースに失敗しました
+                responseError:
+                  value: レスポンスボディの作成に失敗しました
 
 tags:
   - name: Drafts

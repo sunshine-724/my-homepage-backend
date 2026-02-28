@@ -29,10 +29,10 @@ sequenceDiagram
   N->>G: GET /drafts/{id}
   note right of N: Header: x-api-key
   G->>L: invoke (GET /drafts/{id})
-  L->>D: 下書きを取得 (GetItem)
-  D-->>L: Draft レコード
-  L-->>G: 200 Draft
-  G-->>N: 200 Draft
+  L->>D: （現状）GET_TABLE_NAME から取得 (GetItem)
+  D-->>L: Post レコード
+  L-->>G: 200 Post
+  G-->>N: 200 Post
   N-->>B: 200 BlogDetail
   B->>B: Markdown プレビューをレンダリング
 
